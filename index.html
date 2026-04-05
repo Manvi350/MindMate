@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MindMate - AI Study Buddy</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <div class="container">
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <h1>MindMate</h1>
+
+      <label class="switch">
+        <input type="checkbox" onclick="toggleDarkMode()">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <p class="subtitle">Your AI Study Buddy</p>
+
+    <label for="concept">Enter a Concept:</label>
+    <input type="text" id="concept" placeholder="e.g., Newton's Laws" />
+
+    <label>Select Difficulty Level:</label>
+    <select id="level">
+      <option value="beginner">Beginner</option>
+      <option value="intermediate">Intermediate</option>
+      <option value="expert">Expert</option>
+    </select>
+
+    <button onclick="generateContent()">Generate Explanation + Quiz</button>
+
+    <div id="explanation" class="output"></div>
+    <div id="quiz" class="output quiz"></div>
+    <div id="scoreCard" class="score-card"></div>
+    <div id="history" class="output"></div>
+    <div id="loader" class="loader"></div>
+    <button onclick="clearHistory()" class="clear-btn">
+      Clear History
+    </button>
+    <!-- <button onclick="toggleDarkMode()">Toggle Dark Mode</button> -->
+  </div>
+
+  <script>
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark");
+    }
+    async function generateContent() {
+      const concept = document.getElementById('concept').value.trim();
+      const level = document.getElementById('level').value;
+
+      if (!concept) {
+        alert('Please enter a concept.');
+        return;
+      }
+      showLoader();
+      const data=await callGPT({concept,level});
+
+      hideLoader();
+      if(!data) return;
+
+      displayExplanation(data.explanation);
+      displayQuiz(data.quiz);
+
+      saveToHistory(concept);
+    }
+
+    async function callGPT(payload) {
+      const response = await fetch("http://127.0.0.1:8000/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify( payload )
+      });
+      if (!response.ok) {
+        alert("Server error occurred.");
+        return;
+      }
+      const data = await response.json();
+      return data;
+   } 
+
+    function showLoader() {
+      document.getElementById("loader").style.display = "block";
+    }
+
+    function hideLoader() {
+      document.getElementById("loader").style.display = "none";
+    }
+
+    function displayExplanation(text) {
+      const expDiv = document.getElementById("explanation");
+      expDiv.innerHTML = `<h3>Explanation</h3><p>${text}</p>`;
+    }
+
+    function displayQuiz(quiz) {
+      const quizDiv = document.getElementById("quiz");
+      quizDiv.innerHTML = "<h3>Quiz</h3>";
+
+      quiz.forEach((q, index) => {
+        quizDiv.innerHTML += `<div id="question${index}">
+          <p><strong>${q.question}</strong></p>
+        `;
+
+        q.options.forEach((option,i) => {
+          quizDiv.innerHTML += `
+            <label>
+              <input type="radio" name="q${index}" value="${i}">
+              ${option}
+            </label><br>`;
+        });
+
+        quizDiv.innerHTML += `</div><br>`;
+      });
+
+      quizDiv.innerHTML += `<button id="submitQuiz">Submit Quiz</button>`;
+
+      document.getElementById("submitQuiz").onclick = function () {
+        checkAnswers(quiz);
+      };
+    }
+
+    function checkAnswers(quiz) {
+      let score = 0;
+
+      quiz.forEach((q, index) => {
+        const selected = document.querySelector(`input[name="q${index}"]:checked`);
+        const questionDiv = document.getElementById(`question${index}`);
+
+        const oldResult = questionDiv.querySelector(".result");
+        if (oldResult) oldResult.remove();
+
+        if (!selected) return;
+        const selectedIndex = parseInt(selected.value);
+        const correctIndex = q.answer;
+
+        if (selectedIndex==correctIndex) {
+          score++;
+          questionDiv.innerHTML += `<p class="correct">✅ Correct!</p>`;
+        } else {
+          questionDiv.innerHTML += `
+            <p class="wrong">❌ Incorrect</p>
+            <p class="correct">Correct Answer: ${q.options[correctIndex]}</p>
+          `;
+        }
+      });
+
+      showScore(score, quiz.length);
+    }
+
+    function showScore(score,total){
+      const scoreDiv=document.getElementById("scoreCard")
+
+      let percent=(score/total)*100
+      let message=""
+      let className=""
+
+      if(percent>=80){
+        message="🌟 Excellent Work! You have a strong understanding of this concept."
+        className="score-good"
+      }
+      else if(percent>=50){
+        message="👍 Good Job! You're on the right track. Review the concept once more."
+        className="score-average"
+      }
+      else{
+        message="💡 Don't worry! Learning takes practice. Review the explanation and try again."
+        className="score-bad"
+      }
+
+      scoreDiv.innerHTML=`
+      <h3>🎯Your Score</h3>
+      <p class="${className}">${score} / ${total}</p>
+      <p>${message}</p>
+      `
+    }
+
+    function saveToHistory(concept) {
+      let history = JSON.parse(localStorage.getItem("mindmateHistory")) || [];
+      history.push(concept);
+      localStorage.setItem("mindmateHistory", JSON.stringify(history));
+      displayHistory();
+    }
+
+    function displayHistory() {
+      const history = JSON.parse(localStorage.getItem("mindmateHistory")) || [];
+      const container = document.getElementById("history");
+
+      container.innerHTML = "<h3>Search History</h3>";
+      history.slice(-5).reverse().forEach(item => {
+        container.innerHTML += `<p>${item}</p>`;
+      });
+    }
+
+    window.onload = displayHistory;
+
+    function clearHistory(){
+      if(confirm("Are you sure you want to clear history?")){
+        localStorage.removeItem("mindmateHistory");
+        displayHistory();
+      }
+    }
+
+    
+  </script>
+</body>
+</html>
