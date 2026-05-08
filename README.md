@@ -17,4 +17,4 @@ AI-powered Study Buddy that helps students understand concepts and improve learn
 - Multi-language support
 
 ## 🌐 Live Demo
-🚀 [Click here to use MindMate AI Study Buddy](https://mind-mate-ivory.vercel.app/)
+🚀 [Click here to use MindMate AI Study Buddy]()
